@@ -1,4 +1,5 @@
 ﻿using ECommerceSystem.Application.Interface;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -13,6 +14,7 @@ namespace ECommerceSystem.Controllers
         {
             _unitOfWork = unitOfWork;
         }
+        [Authorize(Roles ="Admin")]
         [HttpGet]
         public async Task<IActionResult> GetCategories()
         {
