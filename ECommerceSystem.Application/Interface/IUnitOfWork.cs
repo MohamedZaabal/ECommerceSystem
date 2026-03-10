@@ -14,6 +14,7 @@ namespace ECommerceSystem.Application.Interface
         IGenericRepository<Category> Categories { get; }
         IGenericRepository<Order> Orders { get; }
         IGenericRepository<OrderItem> OrderItems { get; }
+        IGenericRepository<RefreshToken> RefreshTokens { get; }
 
         Task<int> CompleteAsync();
     }

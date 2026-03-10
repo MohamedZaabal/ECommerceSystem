@@ -16,6 +16,7 @@ namespace ECommerceSystem.Infrastructure.Repositories
         public IGenericRepository<Category> Categories { get; private set; }
         public IGenericRepository<Order> Orders { get; private set; }
         public IGenericRepository<OrderItem> OrderItems { get; private set; }
+        public IGenericRepository<RefreshToken> RefreshTokens { get; private set; }
         public UnitOfWork(AppDbContext context)
         {
             _context = context;

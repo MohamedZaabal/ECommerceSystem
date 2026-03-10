@@ -1,10 +1,13 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
+using ECommerceSystem.Application.Interface;
+using ECommerceSystem.Domain.Entities;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
 
 namespace ECommerceSystem.Controllers
 {
@@ -14,13 +17,14 @@ namespace ECommerceSystem.Controllers
     {
         private readonly UserManager<IdentityUser> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
+        private readonly IUnitOfWork _unitOfWork;
         private readonly IConfiguration _configuration;
-        public AuthController(UserManager<IdentityUser> _userManager, IConfiguration _configuration, RoleManager<IdentityRole> _roleManager)
+        public AuthController(UserManager<IdentityUser> _userManager, IConfiguration _configuration, RoleManager<IdentityRole> _roleManager, IUnitOfWork _unitOfWork)
         {
             this._userManager = _userManager;
             this._configuration = _configuration;
             this._roleManager = _roleManager;
-
+            this._unitOfWork = _unitOfWork;
             Task.Run(async () =>
             {
                 if (!await _roleManager.RoleExistsAsync("Admin"))
@@ -66,11 +70,40 @@ namespace ECommerceSystem.Controllers
             
             var token = GenerateJwtToken(user);
 
-            return Ok(new { token });
+            var refreshToken = new RefreshToken
+            {
+                UserId = user.Id,
+                Token = GenerateRandomToken(),
+                Expires = DateTime.UtcNow.AddDays(7)
+            };
+            await _unitOfWork.RefreshTokens.AddAsync(refreshToken);
+            await _unitOfWork.CompleteAsync();
+
+            return Ok(new { token,refreshToken=refreshToken.Token });
         }
 
+        [HttpPost("refresh-token")]
+        public async Task<IActionResult> RefreshToken([FromBody] string token)
+        {
+            var refreshToken = (await _unitOfWork.RefreshTokens.GetAllAsync())
+                                .FirstOrDefault(rt => rt.Token == token);
 
+            if (refreshToken == null || !refreshToken.IsActive)
+                return Unauthorized(new { message = "Invalid refresh token" });
 
+            var user = await _userManager.FindByIdAsync(refreshToken.UserId);
+            var newJwt = await GenerateJwtToken(user);
+
+            return Ok(new
+            {
+                token = newJwt
+            });
+        }
+
+        private string GenerateRandomToken()
+        {
+            return Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
+        }
         private async Task<string> GenerateJwtToken(IdentityUser user)
         {
             var roles=await _userManager.GetRolesAsync(user);

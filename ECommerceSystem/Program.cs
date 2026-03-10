@@ -3,10 +3,13 @@ using System.Text;
 using ECommerceSystem.Application.Interface;
 using ECommerceSystem.Infrastructure.Data;
 using ECommerceSystem.Infrastructure.Repositories;
+using ECommerceSystem.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Serilog;
+using AutoMapper;
 
 namespace ECommerceSystem
 {
@@ -59,6 +62,53 @@ namespace ECommerceSystem
             });
             #endregion
 
+            //========================
+            #region Serilog
+            Log.Logger=new LoggerConfiguration()
+                .WriteTo.Console()
+                .WriteTo.File("logs/log-.txt", rollingInterval: RollingInterval.Day)
+                .CreateLogger();
+            builder.Host.UseSerilog();
+            #endregion
+
+            //========================
+
+            builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
+
+
+            #region Documentation
+            builder.Services.AddSwaggerGen(options =>
+            {
+                options.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+                {
+                    Version = "v1",
+                    Title = "E-Commerce API",
+                    Description = "Production-ready E-Commerce API",
+                });
+                var jwtSecurityScheme = new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+                {
+                    Scheme = "bearer",
+                    BearerFormat = "JWT",
+                    Name = "Authorization",
+                    In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+                    Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
+                    Description = "Enter JWT token",
+
+                    Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                    {
+                        Id = JwtBearerDefaults.AuthenticationScheme,
+                        Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme
+                    }
+                };
+                options.AddSecurityDefinition(jwtSecurityScheme.Reference.Id, jwtSecurityScheme);
+                options.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+                {
+                    { jwtSecurityScheme, Array.Empty<string>() }
+                });
+
+
+            });
+            #endregion
 
             var app = builder.Build();
 
@@ -74,6 +124,7 @@ namespace ECommerceSystem
             app.UseAuthentication();
             app.UseAuthorization();
 
+            app.UseMiddleware<ExceptionMiddleware>();
 
             app.MapControllers();
 
